@@ -33,7 +33,12 @@
   },
   "name": "derive-state",
   "author": "Víctor Oliva",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/voliva/derive-state.git"
+  },
   "module": "dist/derive-state.esm.js",
+  "sideEffects": false,
   "size-limit": [
     {
       "path": "dist/derive-state.cjs.production.min.js",

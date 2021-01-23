@@ -1,103 +1,103 @@
-# TSDX User Guide
+# DeriveState
 
-Congrats! You just saved yourself hours of work by bootstrapping this project with TSDX. Let’s get you oriented with what’s here and how to use it.
+State library that implements the Observer pattern, built with reactivity and composition in mind.
 
-> This TSDX setup is meant for developing libraries (not apps!) that can be published to NPM. If you’re looking to build a Node app, you could use `ts-node-dev`, plain `ts-node`, or simple `tsc`.
+Heavily inspired from RxJS, but while RxJS focuses on asynchronous values, DeriveState focuses on stateful boxes, (aka cells in a spreadsheet) - As if everything were a `BehaviourSubject`, but where you can derive them from other states.
 
-> If you’re new to TypeScript, checkout [this handy cheatsheet](https://devhints.io/typescript)
+Experimental
 
-## Commands
+## Usage
 
-TSDX scaffolds your new library inside `/src`.
+```ts
+import { State, DerivedState } from 'derive-state';
 
-To run TSDX, use:
+const apples = new State(0);
 
-```bash
-npm start # or yarn start
+apples.subscribe(apples => console.log(`We now have ${apples} apple(s)`));
+// Logs "We now have 0 apple(s)"
+
+apples.setValue(2);
+// Logs "We now have 2 apple(s)"
+
+const squaredApples = new DerivedState(next =>
+  apples.subscribe(apples => next(apples * apples))
+);
+squaredApples.subscribe(apples =>
+  console.log(`We now have ${apples} squared apple(s)`)
+);
+// Logs "We now have 4 squared apple(s)"
+
+// `squaredApples` is a DerivedState, it doesn't have a function `setValue`
+// but its state will react to changes from `apples`
+apples.setValue(3);
+// Logs "We now have 3 apple(s)" "We now have 9 squared apple(s)"
 ```
 
-This builds to `/dist` and runs the project in watch mode so any edits you save inside `src` causes a rebuild to `/dist`.
+DeriveState also exports some operators to help compose states. Internally, all
+of them are using `new DerivedState`
 
-To do a one-off build, use `npm run build` or `yarn build`.
+Note that pipe is an external function, where the first parameter is the observable
+to throw down the pipeline.
 
-To run tests, use `npm test` or `yarn test`.
+```ts
+import { pipe, combine, map } from 'derive-state';
 
-## Configuration
+const pears = new State(10);
 
-Code quality is set up for you with `prettier`, `husky`, and `lint-staged`. Adjust the respective fields in `package.json` accordingly.
-
-### Jest
-
-Jest tests are set up to run with `npm test` or `yarn test`.
-
-### Bundle Analysis
-
-[`size-limit`](https://github.com/ai/size-limit) is set up to calculate the real cost of your library with `npm run size` and visualize the bundle with `npm run analyze`.
-
-#### Setup Files
-
-This is the folder structure we set up for you:
-
-```txt
-/src
-  index.tsx       # EDIT THIS
-/test
-  blah.test.tsx   # EDIT THIS
-.gitignore
-package.json
-README.md         # EDIT THIS
-tsconfig.json
+const fruits = pipe(
+  combine([apples, pears]), // eq. combineLatest in rxjs
+  map(([apples, pears]) => apples + pears)
+);
+apples.subscribe(apples => console.log(`We have ${fruits} fruit(s) in total`));
+// Logs "We have 13 fruit(s) in total"
 ```
 
-### Rollup
+For convenience, it also exposes Stateless observables: those that you will only
+get updates from new values.
 
-TSDX uses [Rollup](https://rollupjs.org) as a bundler and generates multiple rollup configs for various module formats and build settings. See [Optimizations](#optimizations) for details.
+Note that when deriving a state using any of the exposed operators, it will
+result in a stateful observable. DeriveState exports a utility to turn a stateful
+observable to a stateless:
 
-### TypeScript
+```ts
+import { Stateless, asStateless } from 'derive-state';
 
-`tsconfig.json` is set up to interpret `dom` and `esnext` types, as well as `react` for `jsx`. Adjust according to your needs.
+const clicks = new Stateless();
+clicks.emit('click');
+clicks.subscribe(() => console.log('received a click'));
+// Logs nothing
 
-## Continuous Integration
+clicks.emit('click');
+// Logs "received a click"
 
-### GitHub Actions
+const totalClicks = pipe(
+  clicks,
+  scan(acc => acc + 1, 0) // (scan operator TBD)
+);
+totalClicks.subscribe(total => console.log(`total clicks: ${total}`));
+// Logs "total clicks: 0"
 
-Two actions are added by default:
+clicks.emit('click');
+// Logs "received a click" "total clicks: 1"
 
-- `main` which installs deps w/ cache, lints, tests, and builds on all pushes against a Node and OS matrix
-- `size` which comments cost comparison of your library on every pull request using [`size-limit`](https://github.com/ai/size-limit)
+const totalClickChanges = asStateless(totalClicks);
+totalClickChanges.subscribe(total => console.log('new total clicks: ${total}'));
+// Logs nothing
 
-## Optimizations
+clicks.emit('click');
+// Logs "received a click" "total clicks: 2" "new total clicks: 2"
 
-Please see the main `tsdx` [optimizations docs](https://github.com/palmerhq/tsdx#optimizations). In particular, know that you can take advantage of development-only optimizations:
-
-```js
-// ./types/index.d.ts
-declare var __DEV__: boolean;
-
-// inside your code...
-if (__DEV__) {
-  console.log('foo');
-}
+totalClickChanges.subscribe(total => console.log('new total clicks: ${total}'));
+// Logs nothing
 ```
 
-You can also choose to install and use [invariant](https://github.com/palmerhq/tsdx#invariant) and [warning](https://github.com/palmerhq/tsdx#warning) functions.
+### Operators
 
-## Module Formats
-
-CJS, ESModules, and UMD module formats are supported.
-
-The appropriate paths are configured in `package.json` and `dist/index.js` accordingly. Please report if any issues are found.
-
-## Named Exports
-
-Per Palmer Group guidelines, [always use named exports.](https://github.com/palmerhq/typescript#exports) Code split inside your React app instead of your React library.
-
-## Including Styles
-
-There are many ways to ship styles, including with CSS-in-JS. TSDX has no opinion on this, configure how you like.
-
-For vanilla CSS, you can include it at the root directory and add it to the `files` section in your `package.json`, so that it can be imported separately by your users and run through their bundler's loader.
-
-## Publishing to NPM
-
-We recommend using [np](https://github.com/sindresorhus/np).
+- `combine(obj)`: subscribes to every observable in `obj`, and emits the value of all of them in the same structure as `obj` (works with arrays too)
+- `merge(array)`: subscribes to all the observables in array and emits every value from them.
+- `map(fn)`: maps the values from the source stream by using the map function.
+- `filter(fn)`: filters changes based on the filter function.
+- `distinctUntilChanged()`: prevents emitting the same value twice in a row.
+- `switchMap(fn)`: flattens out the observable returned by the map function, unsubscribing from the previous ones.
+- `take(n)`: updates at most N times.
+- `withDefault(value)`: adds in a value if none is present.
