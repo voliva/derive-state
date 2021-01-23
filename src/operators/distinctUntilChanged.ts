@@ -4,7 +4,7 @@ import { Observable } from '../interface';
 export const distinctUntilChanged = <T>() => (source: Observable<T>) =>
   new DerivedState<T>(next => {
     let lastValue: T | typeof EMPTY = EMPTY;
-    source.subscribe(value => {
+    return source.subscribe(value => {
       if (value !== lastValue) {
         next(value);
       }

@@ -1,31 +1,38 @@
 import { Observable, ObservableState } from './interface';
+import { noop, ObserverList } from './internal';
 import { skipSynchronous } from './operators';
 
 export class DerivedStateless<T> implements Observable<T> {
-  private observers = new Set<(value: T) => void>();
+  private observerList = new ObserverList<T>();
+  private teardown: () => void;
 
-  constructor(derive: (next: (value: T) => void) => void) {
-    derive(next => {
-      this.observers.forEach(observer => observer(next));
-    });
+  constructor(derive: (next: (value: T) => void) => void | (() => void)) {
+    this.teardown = derive(next => this.observerList.emit(next)) || noop;
   }
 
-  subscribe(callback: (value: T) => void) {
-    this.observers.add(callback);
-    return () => this.observers.delete(callback);
+  subscribe(callback: (value: T) => void, disposed?: () => void) {
+    return this.observerList.addObserver(callback, disposed);
+  }
+
+  dispose() {
+    this.teardown();
+    this.observerList.dispose();
   }
 }
 
-export class Stateless<T> implements Observable<T> {
-  private observers = new Set<(value: T) => void>();
+export class Stateless<T> extends DerivedStateless<T> {
+  private next: (value: T) => void;
 
-  emit(value: T) {
-    this.observers.forEach(observer => observer(value));
+  constructor() {
+    let capturedNext: (value: T) => void;
+    super(next => {
+      capturedNext = next;
+    });
+    this.next = capturedNext!;
   }
 
-  subscribe(callback: (value: T) => void) {
-    this.observers.add(callback);
-    return () => this.observers.delete(callback);
+  emit(newState: T) {
+    this.next(newState);
   }
 }
 

@@ -6,7 +6,7 @@ export const combine = <T>(input: { [K in keyof T]: Observable<T[K]> }) =>
     let active = false;
     let value: any = Array.isArray(input) ? [] : {};
     const entries = Object.entries<Observable<unknown>>(input);
-    entries.forEach(([key, observable]) =>
+    const unsubs = entries.map(([key, observable]) =>
       observable.subscribe(subvalue => {
         value[key] = subvalue;
         if (active || Object.keys(value).length === entries.length) {
@@ -15,4 +15,5 @@ export const combine = <T>(input: { [K in keyof T]: Observable<T[K]> }) =>
         }
       })
     );
+    return () => unsubs.forEach(unsub => unsub());
   });

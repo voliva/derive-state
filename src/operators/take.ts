@@ -16,4 +16,5 @@ export const take = (n: number) => <T>(source: Observable<T>) =>
     if (i >= n) {
       unsub();
     }
+    return unsub;
   });
