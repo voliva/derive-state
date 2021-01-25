@@ -11,7 +11,9 @@ export class ObserverList<T> {
 
     const observer = { next: callback, disposed: disposed || noop };
     this.observers.add(observer);
-    return () => this.observers.delete(observer);
+    return () => {
+      this.observers.delete(observer);
+    };
   }
 
   emit(value: T) {

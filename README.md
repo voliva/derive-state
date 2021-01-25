@@ -48,7 +48,7 @@ const fruits = pipe(
   combine([apples, pears]), // eq. combineLatest in rxjs
   map(([apples, pears]) => apples + pears)
 );
-apples.subscribe(apples => console.log(`We have ${fruits} fruit(s) in total`));
+fruits.subscribe(fruits => console.log(`We have ${fruits} fruit(s) in total`));
 // Logs "We have 13 fruit(s) in total"
 ```
 
@@ -93,8 +93,13 @@ totalClickChanges.subscribe(total => console.log('new total clicks: ${total}'));
 
 ### Operators
 
+Creation operators
+
 - `combine(obj)`: subscribes to every observable in `obj`, and emits the value of all of them in the same structure as `obj` (works with arrays too)
 - `merge(array)`: subscribes to all the observables in array and emits every value from them.
+
+Pipeable operators
+
 - `map(fn)`: maps the values from the source stream by using the map function.
 - `filter(fn)`: filters changes based on the filter function.
 - `distinctUntilChanged()`: prevents emitting the same value twice in a row.
