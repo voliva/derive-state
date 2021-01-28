@@ -2,7 +2,7 @@ import { DerivedState } from '../state';
 import { Observable } from '../interface';
 
 export const combine = <T>(input: { [K in keyof T]: Observable<T[K]> }) =>
-  new DerivedState<T>(next => {
+  new DerivedState<T>((next, dispose) => {
     let active = false;
     let value: any = Array.isArray(input) ? [] : {};
     const entries = Object.entries<Observable<unknown>>(input);
@@ -13,7 +13,7 @@ export const combine = <T>(input: { [K in keyof T]: Observable<T[K]> }) =>
           active = true;
           next(value);
         }
-      })
+      }, dispose)
     );
     return () => unsubs.forEach(unsub => unsub());
   });

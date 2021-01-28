@@ -2,7 +2,7 @@ import { DerivedState } from '../state';
 import { Observable } from '../interface';
 
 export const take = (n: number) => <T>(source: Observable<T>) =>
-  new DerivedState<T>(next => {
+  new DerivedState<T>((next, dispose) => {
     let i = 0;
     const unsub = source.subscribe(v => {
       if (i < n) {
@@ -12,7 +12,7 @@ export const take = (n: number) => <T>(source: Observable<T>) =>
       if (i >= n) {
         if (unsub) unsub();
       }
-    });
+    }, dispose);
     if (i >= n) {
       unsub();
     }

@@ -6,12 +6,20 @@ export class DerivedState<T> implements ObservableState<T> {
   private state: T | typeof EMPTY = EMPTY;
   private teardown: () => void;
 
-  constructor(derive: (next: (value: T) => void) => void | (() => void)) {
+  constructor(
+    derive: (
+      next: (value: T) => void,
+      dispose: () => void
+    ) => void | (() => void)
+  ) {
     this.teardown =
-      derive(next => {
-        if (!this.observerList.closed) this.state = next;
-        this.observerList.emit(next);
-      }) || noop;
+      derive(
+        next => {
+          if (!this.observerList.closed) this.state = next;
+          this.observerList.emit(next);
+        },
+        () => this.dispose()
+      ) || noop;
   }
 
   subscribe(callback: (value: T) => void, disposed?: () => void) {
