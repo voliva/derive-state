@@ -4,12 +4,11 @@ export class ObserverList<T> {
   private observers = new Set<Observer<T>>();
   public closed = false;
 
-  addObserver(callback: (value: T) => void, disposed?: () => void) {
+  addObserver(observer: Observer<T>) {
     if (this.closed) {
       throw new Error("StatelessObservable was closed, can't subscribe");
     }
 
-    const observer = { next: callback, disposed: disposed || noop };
     this.observers.add(observer);
     return () => {
       this.observers.delete(observer);
@@ -24,8 +23,8 @@ export class ObserverList<T> {
     this.observers.forEach(observer => observer.next(value));
   }
 
-  dispose() {
-    this.observers.forEach(observer => observer.disposed());
+  close() {
+    this.observers.forEach(observer => observer.complete());
     this.observers.clear();
     this.closed = true;
   }

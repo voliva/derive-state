@@ -1,6 +1,6 @@
 import { DerivedState, State } from '../src';
 
-describe('dispose', () => {
+describe('complete', () => {
   it('closes a stream', () => {
     const state = new State(5);
     const notify = jest.fn();
@@ -8,19 +8,23 @@ describe('dispose', () => {
     state.subscribe(() => void 0, notify);
     expect(notify).not.toBeCalled();
 
-    state.dispose();
+    state.close();
     expect(notify).toBeCalled();
-    expect(() => state.getValue()).toThrow();
+    expect(state.getValue()).toEqual(5);
     expect(() => state.setValue(1)).toThrow();
-    expect(() => state.subscribe(() => void 0)).toThrow();
+    expect(state.getValue()).toEqual(5);
+
+    const next = jest.fn();
+    const complete = jest.fn();
+    state.subscribe(next, complete);
+    expect(next).toHaveBeenCalledWith(5);
+    expect(complete).toHaveBeenCalled();
   });
 
   it('closes a stream chain', () => {
     const state = new State(5);
-    const d0 = new DerivedState((next, dispose) =>
-      state.subscribe(next, dispose)
-    );
-    const d1 = new DerivedState((next, dispose) => d0.subscribe(next, dispose));
+    const d0 = new DerivedState(obs => state.subscribe(obs.next, obs.complete));
+    const d1 = new DerivedState(obs => d0.subscribe(obs.next, obs.complete));
 
     const n1 = jest.fn();
     const n2 = jest.fn();
@@ -30,7 +34,7 @@ describe('dispose', () => {
     d0.subscribe(() => void 0, n2);
     d1.subscribe(() => void 0, n3);
 
-    state.dispose();
+    state.close();
     expect(n1).toBeCalled();
     expect(n2).toBeCalled();
     expect(n3).toBeCalled();
@@ -38,10 +42,8 @@ describe('dispose', () => {
 
   it('only closes the streams that depend on it', () => {
     const state = new State(5);
-    const d0 = new DerivedState((next, dispose) =>
-      state.subscribe(next, dispose)
-    );
-    const d1 = new DerivedState((next, dispose) => d0.subscribe(next, dispose));
+    const d0 = new DerivedState(obs => state.subscribe(obs.next, obs.complete));
+    const d1 = new DerivedState(obs => d0.subscribe(obs.next, obs.complete));
 
     const n1 = jest.fn();
     const n2 = jest.fn();
@@ -51,11 +53,13 @@ describe('dispose', () => {
     d0.subscribe(() => void 0, n2);
     d1.subscribe(() => void 0, n3);
 
-    d0.dispose();
+    d0.close();
     expect(n1).not.toBeCalled();
     expect(n2).toBeCalled();
     expect(n3).toBeCalled();
 
     expect(() => state.setValue(1)).not.toThrow();
+    expect(d0.getValue()).toEqual(5);
+    expect(d1.getValue()).toEqual(5);
   });
 });

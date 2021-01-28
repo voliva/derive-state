@@ -1,4 +1,4 @@
-import { ObservableState } from './interface';
+import { ObservableState, Observer } from './interface';
 import { noop, ObserverList } from './internal';
 
 export class DerivedState<T> implements ObservableState<T> {
@@ -6,25 +6,39 @@ export class DerivedState<T> implements ObservableState<T> {
   private state: T | typeof EMPTY = EMPTY;
   private teardown: () => void;
 
-  constructor(
-    derive: (
-      next: (value: T) => void,
-      dispose: () => void
-    ) => void | (() => void)
-  ) {
+  constructor(derive: (observer: Observer<T>) => void | (() => void)) {
     this.teardown =
-      derive(
-        next => {
-          if (!this.observerList.closed) this.state = next;
+      derive({
+        next: next => {
+          if (this.observerList.closed) {
+            throw new Error("Can't set the value of a closed ObservableState");
+          }
+          this.state = next;
           this.observerList.emit(next);
         },
-        () => this.dispose()
-      ) || noop;
+        complete: () => this.close(),
+      }) || noop;
+
+    // For synchronous completes
+    if (this.observerList.closed) {
+      this.teardown();
+    }
   }
 
-  subscribe(callback: (value: T) => void, disposed?: () => void) {
-    const unsub = this.observerList.addObserver(callback, disposed);
-    if (this.state !== EMPTY) callback(this.state);
+  subscribe(next: (value: T) => void, complete?: () => void) {
+    const observer: Observer<T> = {
+      next,
+      complete: complete || noop,
+    };
+
+    if (this.observerList.closed) {
+      if (this.state !== EMPTY) next(this.state);
+      complete?.();
+      return noop;
+    }
+
+    const unsub = this.observerList.addObserver(observer);
+    if (this.state !== EMPTY) next(this.state);
     return unsub;
   }
   hasValue() {
@@ -38,19 +52,22 @@ export class DerivedState<T> implements ObservableState<T> {
     }
     return this.state;
   }
-  dispose() {
-    this.teardown();
-    this.state = EMPTY;
-    this.observerList.dispose();
+  close() {
+    // On synchronous completes, this.teardown can possibly not be defined yet
+    this.teardown?.();
+    this.observerList.close();
   }
 
   get value() {
-    return new Promise<T>(resolve => {
+    return new Promise<T>((resolve, reject) => {
       if (this.hasValue()) return resolve(this.getValue());
-      const unsub = this.subscribe(v => {
-        unsub();
-        resolve(v);
-      });
+      const unsub = this.subscribe(
+        v => {
+          unsub();
+          resolve(v);
+        },
+        () => reject(new Error('ObservableState completed without any value'))
+      );
     });
   }
 }
@@ -60,14 +77,14 @@ export class State<T> extends DerivedState<T> {
 
   constructor(initialValue?: T) {
     const args = arguments;
-    let capturedNext: (value: T) => void;
-    super(next => {
-      capturedNext = next;
+    let capturedObserver: Observer<T>;
+    super(obs => {
+      capturedObserver = obs;
       if (args.length >= 1) {
-        next(initialValue!);
+        obs.next(initialValue!);
       }
     });
-    this.next = capturedNext!;
+    this.next = (v: T) => capturedObserver!.next(v);
   }
 
   setValue(newState: T) {

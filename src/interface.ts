@@ -1,6 +1,6 @@
 export interface Observable<T> {
-  subscribe(callback: (value: T) => void, disposed?: () => void): () => void;
-  dispose(): void;
+  subscribe(next: (value: T) => void, complete?: () => void): () => void;
+  close(): void;
 }
 
 export interface ObservableState<T> extends Observable<T> {
@@ -11,5 +11,5 @@ export interface ObservableState<T> extends Observable<T> {
 
 export interface Observer<T> {
   next: (value: T) => void;
-  disposed: () => void;
+  complete: () => void;
 }

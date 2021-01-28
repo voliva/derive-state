@@ -4,14 +4,14 @@ import { Observable } from '../interface';
 export const distinctUntilChanged = <T>(
   eqFn: (a: T, b: T) => boolean = (a, b) => a === b
 ) => (source: Observable<T>) =>
-  new DerivedState<T>((next, dispose) => {
+  new DerivedState<T>(obs => {
     let lastValue: T | typeof EMPTY = EMPTY;
-    return source.subscribe((value) => {
+    return source.subscribe(value => {
       if (lastValue === EMPTY || !eqFn(value, lastValue)) {
-        next(value);
+        obs.next(value);
       }
       lastValue = value;
-    }, dispose);
+    }, obs.complete);
   });
 
 const EMPTY = Symbol('empty');

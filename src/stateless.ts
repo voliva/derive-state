@@ -1,22 +1,35 @@
-import { Observable, ObservableState } from './interface';
+import { Observable, ObservableState, Observer } from './interface';
 import { noop, ObserverList } from './internal';
-import { skipSynchronous } from './operators';
 
 export class DerivedStateless<T> implements Observable<T> {
   private observerList = new ObserverList<T>();
   private teardown: () => void;
 
-  constructor(derive: (next: (value: T) => void) => void | (() => void)) {
-    this.teardown = derive(next => this.observerList.emit(next)) || noop;
+  constructor(derive: (observer: Observer<T>) => void | (() => void)) {
+    this.teardown =
+      derive({
+        next: next => this.observerList.emit(next),
+        complete: () => this.close(),
+      }) || noop;
   }
 
-  subscribe(callback: (value: T) => void, disposed?: () => void) {
-    return this.observerList.addObserver(callback, disposed);
+  subscribe(next: (value: T) => void, complete?: () => void) {
+    const observer: Observer<T> = {
+      next,
+      complete: complete || noop,
+    };
+
+    if (this.observerList.closed) {
+      observer.complete();
+      return noop;
+    }
+
+    return this.observerList.addObserver(observer);
   }
 
-  dispose() {
+  close() {
     this.teardown();
-    this.observerList.dispose();
+    this.observerList.close();
   }
 }
 
@@ -24,11 +37,11 @@ export class Stateless<T> extends DerivedStateless<T> {
   private next: (value: T) => void;
 
   constructor() {
-    let capturedNext: (value: T) => void;
-    super(next => {
-      capturedNext = next;
+    let capturedObserver: Observer<T>;
+    super(obs => {
+      capturedObserver = obs;
     });
-    this.next = capturedNext!;
+    this.next = (v: T) => capturedObserver!.next(v);
   }
 
   emit(newState: T) {
@@ -37,4 +50,4 @@ export class Stateless<T> extends DerivedStateless<T> {
 }
 
 export const asStateless = <T>(observable: ObservableState<T>) =>
-  new DerivedStateless(next => skipSynchronous()(observable).subscribe(next));
+  new DerivedStateless(obs => observable.subscribe(obs.next, obs.complete));
