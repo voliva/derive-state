@@ -174,6 +174,7 @@ totalFruits.subscribe(fruits => console.log(`We now have ${fruits} fruits`));
 
 Creation operators
 
+- `just(value)`: Emits `value` on the first subscription.
 - `combine(obj)`: subscribes to every observable in `obj`, and emits the value of all of them in the same structure as `obj` (works with arrays too)
 - `merge(array)`: subscribes to all the observables in array and emits every value from them.
 
@@ -184,4 +185,6 @@ Pipeable operators
 - `distinctUntilChanged()`: prevents emitting the same value twice in a row.
 - `switchMap(fn)`: flattens out the observable returned by the map function, unsubscribing from the previous ones.
 - `take(n)`: updates at most N times.
+- `skip(n)`: skips the first N values.
 - `withDefault(value)`: adds in a value if none is present.
+- `scan(accumulator, initialValue?)`: accumulates and emits values using the accumulator function
