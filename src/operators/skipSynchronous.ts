@@ -1,8 +1,8 @@
-import { DerivedState } from '../state';
+import { Stateless } from '../stateless';
 import { Observable } from '../interface';
 
 export const skipSynchronous = () => <T>(source: Observable<T>) =>
-  new DerivedState<T>(obs => {
+  new Stateless<T>(obs => {
     const state = {
       skip: true,
     };

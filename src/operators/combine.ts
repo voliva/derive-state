@@ -1,8 +1,8 @@
-import { DerivedState } from '../state';
+import { Stateless } from '../stateless';
 import { Observable } from '../interface';
 
 export const combine = <T>(input: { [K in keyof T]: Observable<T[K]> }) =>
-  new DerivedState<T>(obs => {
+  new Stateless<T>(obs => {
     let active = false;
     let value: any = Array.isArray(input) ? [] : {};
     const entries = Object.entries<Observable<unknown>>(input);

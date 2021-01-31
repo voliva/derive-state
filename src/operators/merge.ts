@@ -1,8 +1,8 @@
-import { DerivedState } from '../state';
+import { Stateless } from '../stateless';
 import { Observable } from '../interface';
 
 export const merge = <T>(observables: Observable<T>[]) =>
-  new DerivedState<T>(obs => {
+  new Stateless<T>(obs => {
     let activeSubs = observables.length;
     if (activeSubs === 0) {
       return obs.complete();

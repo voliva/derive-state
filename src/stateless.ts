@@ -1,16 +1,23 @@
-import { Observable, ObservableState, Observer } from './interface';
+import {
+  StateObservable,
+  Observer,
+  Operator,
+  StatelessObservable,
+} from './interface';
 import { noop, ObserverList } from './internal';
+import { State } from './state';
 
-export class DerivedStateless<T> implements Observable<T> {
+export class Stateless<T> implements StatelessObservable<T> {
   private observerList = new ObserverList<T>();
-  private teardown: () => void;
+  private teardown: () => void = noop;
+  private start: (observer: Observer<T>) => void | (() => void);
 
-  constructor(derive: (observer: Observer<T>) => void | (() => void)) {
-    this.teardown =
-      derive({
-        next: next => this.observerList.emit(next),
-        complete: () => this.close(),
-      }) || noop;
+  constructor(derive: (observer: Observer<T>) => void | (() => void) = noop) {
+    this.start = derive;
+  }
+
+  emit(next: T) {
+    this.observerList.emit(next);
   }
 
   subscribe(next: (value: T) => void, complete?: () => void) {
@@ -24,30 +31,47 @@ export class DerivedStateless<T> implements Observable<T> {
       return noop;
     }
 
-    return this.observerList.addObserver(observer);
+    const unsub = this.observerList.addObserver(observer);
+    if (this.observerList.size === 1) {
+      this.teardown =
+        this.start({
+          next: v => this.emit(v),
+          complete: () => this.close(),
+        }) || noop;
+    }
+    return () => {
+      unsub();
+      if (this.observerList.size === 0) {
+        this.teardown();
+      }
+    };
   }
 
   close() {
     this.teardown();
     this.observerList.close();
   }
-}
 
-export class Stateless<T> extends DerivedStateless<T> {
-  private next: (value: T) => void;
-
-  constructor() {
-    let capturedObserver: Observer<T>;
-    super(obs => {
-      capturedObserver = obs;
+  pipe(...operators: Operator<any, any>[]) {
+    const [firstOp, ...rest] = operators;
+    const first = firstOp(this);
+    let current = first;
+    rest.forEach(operator => {
+      current = operator(current);
     });
-    this.next = (v: T) => capturedObserver!.next(v);
+    return Object.assign(current, { kill: () => first.close() });
   }
 
-  emit(newState: T) {
-    this.next(newState);
+  capture() {
+    const state = new State<T>();
+    const unsub = this.subscribe(
+      n => state.setValue(n),
+      () => state.close()
+    );
+    state.appendTeardown(unsub);
+    return state as StateObservable<T>;
   }
 }
 
-export const asStateless = <T>(observable: ObservableState<T>) =>
-  new DerivedStateless(obs => observable.subscribe(obs.next, obs.complete));
+export const asStateless = <T>(observable: StateObservable<T>) =>
+  new Stateless(obs => observable.subscribe(obs.next, obs.complete));

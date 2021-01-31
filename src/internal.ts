@@ -28,6 +28,10 @@ export class ObserverList<T> {
     this.observers.clear();
     this.closed = true;
   }
+
+  get size() {
+    return this.observers.size;
+  }
 }
 
 export const noop = () => void 0;

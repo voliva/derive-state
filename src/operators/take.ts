@@ -1,8 +1,8 @@
-import { DerivedState } from '../state';
+import { Stateless } from '../stateless';
 import { Observable } from '../interface';
 
 export const take = (n: number) => <T>(source: Observable<T>) =>
-  new DerivedState<T>(obs => {
+  new Stateless<T>(obs => {
     if (n < 1) {
       return obs.complete();
     }

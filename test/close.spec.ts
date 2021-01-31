@@ -1,4 +1,4 @@
-import { DerivedState, State } from '../src';
+import { Stateless, State } from '../src';
 
 describe('complete', () => {
   it('closes a stream', () => {
@@ -23,8 +23,8 @@ describe('complete', () => {
 
   it('closes a stream chain', () => {
     const state = new State(5);
-    const d0 = new DerivedState(obs => state.subscribe(obs.next, obs.complete));
-    const d1 = new DerivedState(obs => d0.subscribe(obs.next, obs.complete));
+    const d0 = new Stateless(obs => state.subscribe(obs.next, obs.complete));
+    const d1 = new Stateless(obs => d0.subscribe(obs.next, obs.complete));
 
     const n1 = jest.fn();
     const n2 = jest.fn();
@@ -42,8 +42,12 @@ describe('complete', () => {
 
   it('only closes the streams that depend on it', () => {
     const state = new State(5);
-    const d0 = new DerivedState(obs => state.subscribe(obs.next, obs.complete));
-    const d1 = new DerivedState(obs => d0.subscribe(obs.next, obs.complete));
+    const d0 = new Stateless(obs =>
+      state.subscribe(obs.next, obs.complete)
+    ).capture();
+    const d1 = new Stateless(obs =>
+      d0.subscribe(obs.next, obs.complete)
+    ).capture();
 
     const n1 = jest.fn();
     const n2 = jest.fn();

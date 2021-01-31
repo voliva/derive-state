@@ -1,28 +1,23 @@
-import { ObservableState, Observer } from './interface';
+import { StateObservable, Observer, Operator } from './interface';
 import { noop, ObserverList } from './internal';
 
-export class DerivedState<T> implements ObservableState<T> {
+export class State<T> implements StateObservable<T> {
   private observerList = new ObserverList<T>();
   private state: T | typeof EMPTY = EMPTY;
-  private teardown: () => void;
+  private teardown: () => void = noop;
 
-  constructor(derive: (observer: Observer<T>) => void | (() => void)) {
-    this.teardown =
-      derive({
-        next: next => {
-          if (this.observerList.closed) {
-            throw new Error("Can't set the value of a closed ObservableState");
-          }
-          this.state = next;
-          this.observerList.emit(next);
-        },
-        complete: () => this.close(),
-      }) || noop;
-
-    // For synchronous completes
-    if (this.observerList.closed) {
-      this.teardown();
+  constructor(initialValue?: T) {
+    if (arguments.length >= 1) {
+      this.state = initialValue!;
     }
+  }
+
+  setValue(newState: T) {
+    if (this.observerList.closed) {
+      throw new Error("Can't set the value of a closed ObservableState");
+    }
+    this.state = newState;
+    this.observerList.emit(newState);
   }
 
   subscribe(next: (value: T) => void, complete?: () => void) {
@@ -41,6 +36,29 @@ export class DerivedState<T> implements ObservableState<T> {
     if (this.state !== EMPTY) next(this.state);
     return unsub;
   }
+
+  pipe(...operators: Operator<any, any>[]) {
+    const [firstOp, ...rest] = operators;
+    const first = firstOp(this);
+    let current = first;
+    rest.forEach(operator => {
+      current = operator(current);
+    });
+    return Object.assign(current, { kill: () => first.close() });
+  }
+
+  appendTeardown(teardown: () => void) {
+    const old = this.teardown;
+    this.teardown = () => {
+      old();
+      teardown();
+    };
+  }
+  close() {
+    this.teardown();
+    this.observerList.close();
+  }
+
   hasValue() {
     return this.state !== EMPTY;
   }
@@ -51,11 +69,6 @@ export class DerivedState<T> implements ObservableState<T> {
       );
     }
     return this.state;
-  }
-  close() {
-    // On synchronous completes, this.teardown can possibly not be defined yet
-    this.teardown?.();
-    this.observerList.close();
   }
 
   get value() {
@@ -69,26 +82,6 @@ export class DerivedState<T> implements ObservableState<T> {
         () => reject(new Error('ObservableState completed without any value'))
       );
     });
-  }
-}
-
-export class State<T> extends DerivedState<T> {
-  private next: (value: T) => void;
-
-  constructor(initialValue?: T) {
-    const args = arguments;
-    let capturedObserver: Observer<T>;
-    super(obs => {
-      capturedObserver = obs;
-      if (args.length >= 1) {
-        obs.next(initialValue!);
-      }
-    });
-    this.next = (v: T) => capturedObserver!.next(v);
-  }
-
-  setValue(newState: T) {
-    this.next(newState);
   }
 }
 

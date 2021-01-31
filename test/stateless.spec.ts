@@ -47,4 +47,44 @@ describe('Stateless', () => {
     expect(next2).toHaveBeenCalledTimes(1);
     expect(next2).toHaveBeenLastCalledWith(1);
   });
+
+  it('calls the derive function based on refcount', () => {
+    const teardown = jest.fn();
+    const derive = jest.fn(() => teardown);
+    const observable = new Stateless(derive);
+
+    expect(derive).not.toBeCalled();
+
+    const unsub1 = observable.subscribe(() => void 0);
+    expect(derive).toBeCalledTimes(1);
+    expect(teardown).not.toBeCalled();
+
+    const unsub2 = observable.subscribe(() => void 0);
+    expect(derive).toBeCalledTimes(1);
+    expect(teardown).not.toBeCalled();
+
+    unsub1();
+    expect(derive).toBeCalledTimes(1);
+    expect(teardown).not.toBeCalled();
+
+    unsub2();
+    expect(derive).toBeCalledTimes(1);
+    expect(teardown).toBeCalledTimes(1);
+  });
+
+  it('returns a state observable on capture', () => {
+    const teardown = jest.fn();
+    const derive = jest.fn(() => teardown);
+    const observable = new Stateless(derive);
+    observable.emit(5);
+
+    const captured = observable.capture();
+    expect(captured.hasValue()).toBe(false);
+
+    observable.emit(1);
+    expect(captured.getValue()).toBe(1);
+
+    captured.close();
+    expect(teardown).toBeCalled();
+  });
 });
