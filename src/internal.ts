@@ -22,10 +22,13 @@ export class ObserverList<T> {
 
     this.observers.forEach(observer => observer.next(value));
   }
-
-  close() {
+  complete() {
     this.observers.forEach(observer => observer.complete());
     this.observers.clear();
+  }
+
+  close() {
+    this.complete();
     this.closed = true;
   }
 

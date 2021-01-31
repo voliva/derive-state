@@ -37,13 +37,25 @@ export class Stateless<T> implements StatelessObservable<T> {
       this.teardown =
         this.start({
           next: v => this.emit(v),
-          complete: () => this.close(),
+          complete: () => {
+            this.teardown();
+            this.teardown = noop;
+            this.observerList.complete();
+          },
         }) || noop;
     }
+
+    // Synchronous complete: Teardown assigned after start
+    if (this.observerList.size === (0 as any)) {
+      this.teardown();
+      return noop;
+    }
+
     return () => {
       unsub();
       if (this.observerList.size === 0) {
         this.teardown();
+        this.teardown = noop;
       }
     };
   }
