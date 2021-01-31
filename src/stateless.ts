@@ -3,6 +3,7 @@ import {
   Observer,
   Operator,
   StatelessObservable,
+  PipeFn,
 } from './interface';
 import { noop, ObserverList } from './internal';
 import { State } from './state';
@@ -52,15 +53,14 @@ export class Stateless<T> implements StatelessObservable<T> {
     this.observerList.close();
   }
 
-  pipe(...operators: Operator<any, any>[]) {
-    const [firstOp, ...rest] = operators;
-    const first = firstOp(this);
-    let current = first;
+  pipe: PipeFn<T> = (...operators: Operator<any, any>[]) => {
+    const [first, ...rest] = operators;
+    let current = first(this);
     rest.forEach(operator => {
       current = operator(current);
     });
-    return Object.assign(current, { kill: () => first.close() });
-  }
+    return current;
+  };
 
   capture() {
     const state = new State<T>();

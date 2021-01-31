@@ -1,4 +1,4 @@
-import { StateObservable, Observer, Operator } from './interface';
+import { Observer, Operator, PipeFn, StateObservable } from './interface';
 import { noop, ObserverList } from './internal';
 
 export class State<T> implements StateObservable<T> {
@@ -37,15 +37,14 @@ export class State<T> implements StateObservable<T> {
     return unsub;
   }
 
-  pipe(...operators: Operator<any, any>[]) {
-    const [firstOp, ...rest] = operators;
-    const first = firstOp(this);
-    let current = first;
+  pipe: PipeFn<T> = (...operators: Operator<any, any>[]) => {
+    const [first, ...rest] = operators;
+    let current = first(this);
     rest.forEach(operator => {
       current = operator(current);
     });
-    return Object.assign(current, { kill: () => first.close() });
-  }
+    return current;
+  };
 
   appendTeardown(teardown: () => void) {
     const old = this.teardown;
