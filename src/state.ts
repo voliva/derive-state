@@ -82,6 +82,10 @@ export class State<T> implements StateObservable<T> {
       );
     });
   }
+
+  get closed() {
+    return this.observerList.closed;
+  }
 }
 
 const EMPTY = Symbol('empty');

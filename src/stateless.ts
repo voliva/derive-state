@@ -83,6 +83,10 @@ export class Stateless<T> implements StatelessObservable<T> {
     state.appendTeardown(unsub);
     return state as StateObservable<T>;
   }
+
+  get closed() {
+    return this.observerList.closed;
+  }
 }
 
 export const asStateless = <T>(observable: StateObservable<T>) =>
